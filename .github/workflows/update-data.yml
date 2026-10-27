@@ -1,0 +1,46 @@
+name: Weekly fee recollection
+on:
+  schedule:
+    - cron: '17 4 * * 1'
+      timezone: Asia/Shanghai
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  recollect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 70
+    env:
+      FEE_ORGANIZATION: ${{ secrets.FEE_ORGANIZATION }}
+      FEE_CONTACT_EMAIL: ${{ secrets.FEE_CONTACT_EMAIL }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: collector/requirements.txt
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '20'
+      - name: Install document and browser support
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y tesseract-ocr tesseract-ocr-chi-sim
+          python -m pip install -r collector/requirements.txt
+          cd collector
+          npm install --no-save playwright@1.63.0
+          npx playwright install --with-deps chromium
+      - name: Recollect all 150 companies
+        run: python -X utf8 collector/scripts/recollect_and_export.py
+      - name: Verify static snapshot
+        run: python -X utf8 collector/scripts/verify_snapshot.py
+      - name: Persist snapshot
+        run: |
+          git config user.name "fee-overview-bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add site/data/fees.json
+          if ! git diff --cached --quiet; then
+            git commit -m "data: weekly fee update"
+            git push
+          fi

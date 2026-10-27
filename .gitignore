@@ -1,0 +1,7 @@
+collector/data/fee_module/fees.sqlite3*
+collector/data/fee_module/snapshots/
+collector/node_modules/
+__pycache__/
+*.pyc
+debug.log
+overview-*.png
